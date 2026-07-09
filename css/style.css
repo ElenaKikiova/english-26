@@ -145,6 +145,23 @@ h1 {
   opacity: 0.85;
 }
 
+.image-card.image-error {
+  background: #fee2e2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-card.image-error .image-error-label {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.image-card.image-error img {
+  display: none;
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-6px); }

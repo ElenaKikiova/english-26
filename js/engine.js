@@ -69,6 +69,13 @@ class GameEngine {
       img.src = gameAssetUrl(this.gameId, imagePath);
       img.alt = 'Choice';
       img.loading = 'lazy';
+      img.onerror = () => {
+        btn.classList.add('image-error');
+        const label = document.createElement('span');
+        label.className = 'image-error-label';
+        label.textContent = imageStem(imagePath);
+        btn.appendChild(label);
+      };
 
       btn.appendChild(img);
       btn.addEventListener('click', () => this.handleGuess(btn, imagePath));
@@ -192,7 +199,7 @@ async function initGame() {
 
   try {
     const manifest = await loadGameManifest(game);
-    manifest.words.forEach((word, i) => validateWord(word, i));
+    await prepareManifest(game, manifest);
     appEl.classList.remove('hidden');
     new GameEngine({ gameId: game, player, manifest });
   } catch (err) {

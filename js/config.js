@@ -1,3 +1,3 @@
 const CONFIG = {
-  SHEETS_URL: 'https://script.google.com/macros/s/AKfycbxx6PFrezwIFJUOx3HETTegKEAhDoskPpIWDfneqM0Dn874gj-C_n9BNRQ-21xC4ihH/exec',
+  SHEETS_URL: 'https://script.google.com/macros/s/AKfycbxwvGjU4AlApjbHdpoHrZ3odLN4fIku_CScSwEbDE2Mvnsm9_1z7LKewKi1xi3lOEAV/exec',
 };

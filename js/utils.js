@@ -12,20 +12,65 @@ function imageStem(path) {
 }
 
 function isCorrectImage(path, word) {
-  if (word.correct) {
-    return imageStem(path) === String(word.correct);
+  if (!word.correct) {
+    return path.split('/').pop().includes('-correct');
   }
-  return path.split('/').pop().includes('-correct');
+  const filename = path.split('/').pop();
+  const correct = String(word.correct);
+  const lower = (s) => s.toLowerCase();
+  return lower(filename) === lower(correct) || lower(imageStem(path)) === lower(correct);
+}
+
+const IMAGE_EXT = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
+
+async function resolveWordImages(gameId, word) {
+  if (Array.isArray(word.images)) {
+    return word.images;
+  }
+
+  if (typeof word.images !== 'string') {
+    throw new Error('Each word needs "images" as a folder (e.g. "images/1") or a file list');
+  }
+
+  const folder = word.images.replace(/\/$/, '');
+  const res = await fetch(`games/${gameId}/${folder}/list.json`);
+  if (!res.ok) {
+    throw new Error(
+      `Missing ${folder}/list.json — open tools/list-generator.html, select the folder, save list.json inside it`
+    );
+  }
+
+  const files = await res.json();
+  return files
+    .filter((name) => IMAGE_EXT.test(name))
+    .map((name) => `${folder}/${name}`);
+}
+
+async function prepareManifest(gameId, manifest) {
+  for (let i = 0; i < manifest.words.length; i++) {
+    const word = manifest.words[i];
+    if (typeof word.images === 'string') {
+      word.imagesFolder = word.images;
+    }
+    word.images = await resolveWordImages(gameId, word);
+    validateWord(word, i);
+  }
+  return manifest;
 }
 
 function validateWord(word, index) {
   if (!word.correct) {
-    throw new Error(`Word ${index + 1} is missing "correct" (e.g. "correct": "16")`);
+    throw new Error(`Word ${index + 1} is missing "correct" (filename or name without extension)`);
+  }
+  if (!word.images.length) {
+    throw new Error(`Word ${index + 1}: no images found in folder`);
   }
   const hasCorrect = word.images.some((img) => isCorrectImage(img, word));
   if (!hasCorrect) {
     throw new Error(
-      `Word ${index + 1}: no image matches correct "${word.correct}". Add images/…/${word.correct}.jpg (or .png) to the images list.`
+      `Word ${index + 1}: "${word.correct}" not found. ` +
+      `Check the filename in manifest.json matches a file in ${word.imagesFolder || 'the folder'}, ` +
+      `then regenerate list.json (tools/list-generator.html).`
     );
   }
 }
