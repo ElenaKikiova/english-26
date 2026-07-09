@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Games</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>English Games</h1>
+      <p class="subtitle">Pick a game to play</p>
+    </header>
+
+    <p class="note">
+      👩‍🏫 Teachers: use <a href="links.html">Link Generator</a> to create personalized links for each student.
+    </p>
+
+    <ul id="game-list" class="game-list"></ul>
+    <p id="error" class="error-msg hidden"></p>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script>
+    async function init() {
+      const list = document.getElementById('game-list');
+      const error = document.getElementById('error');
+
+      try {
+        const games = await loadGamesRegistry();
+        if (games.length === 0) {
+          error.textContent = 'No games available yet.';
+          error.classList.remove('hidden');
+          return;
+        }
+
+        games.forEach(({ id, title }) => {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = buildGameUrl(id);
+          a.textContent = title || id;
+          li.appendChild(a);
+          list.appendChild(li);
+        });
+      } catch (err) {
+        error.textContent = 'Could not load games.';
+        error.classList.remove('hidden');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

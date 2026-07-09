@@ -1,0 +1,33 @@
+{
+  "title": "Example Game — Animals",
+  "words": [
+    {
+      "audio": "audio/1.m4a",
+      "correct": "16",
+      "images": [
+        "images/1/10.jpg",
+        "images/1/12.jpeg",
+        "images/1/13.webp",
+        "images/1/14.webp",
+        "images/1/15.webp",
+        "images/1/16.webp"
+      ]
+    },
+    {
+      "audio": "audio/2.wav",
+      "correct": "23",
+      "images": [
+        "images/2/21.svg",
+        "images/2/22.svg",
+        "images/2/23.svg",
+        "images/2/24.svg",
+        "images/2/25.svg",
+        "images/2/26.svg",
+        "images/2/27.svg",
+        "images/2/28.svg",
+        "images/2/29.svg",
+        "images/2/210.svg"
+      ]
+    }
+  ]
+}

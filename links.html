@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Link Generator — English Games</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Link Generator</h1>
+      <p class="subtitle">Create a personal link for each student</p>
+    </header>
+
+    <p class="note">
+      Each link includes the student's name. When they finish a game, their score is saved with that name in Google Sheets.
+      <br><a href="index.html">← Back to games</a>
+    </p>
+
+    <div class="form-group">
+      <label for="game-select">Game</label>
+      <select id="game-select"></select>
+    </div>
+
+    <div class="form-group">
+      <label for="names">Student names (one per line)</label>
+      <textarea id="names" placeholder="Maria&#10;Ivan&#10;Ana"></textarea>
+    </div>
+
+    <button type="button" id="btn-generate" class="btn-primary">Generate links</button>
+
+    <div id="link-output" class="link-output hidden">
+      <label for="links">Copy and send to students:</label>
+      <textarea id="links" readonly></textarea>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script>
+    async function init() {
+      const select = document.getElementById('game-select');
+
+      try {
+        const games = await loadGamesRegistry();
+        games.forEach(({ id, title }) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = title || id;
+          select.appendChild(opt);
+        });
+      } catch {
+        select.innerHTML = '<option value="">No games found</option>';
+      }
+
+      document.getElementById('btn-generate').addEventListener('click', () => {
+        const gameId = select.value;
+        const names = document.getElementById('names').value
+          .split('\n')
+          .map((n) => n.trim())
+          .filter(Boolean);
+
+        if (!gameId || names.length === 0) return;
+
+        const lines = names.map((name) => `${name}: ${buildGameUrl(gameId, name)}`);
+        document.getElementById('links').value = lines.join('\n');
+        document.getElementById('link-output').classList.remove('hidden');
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

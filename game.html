@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Game</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="error" class="error-msg hidden"></div>
+
+    <div id="app" class="hidden">
+      <header>
+        <h1 id="game-title">Loading…</h1>
+        <p class="subtitle">Player: <span id="player-name"></span></p>
+      </header>
+
+      <div class="score-bar">
+        <div>Score: <span id="score">0</span></div>
+        <div id="word-progress"></div>
+      </div>
+
+      <div id="game-area" class="game-area">
+        <div class="audio-row">
+          <button type="button" id="btn-play" class="btn-play">🔊 Listen</button>
+        </div>
+        <div id="images-grid" class="images-grid"></div>
+        <div id="feedback" class="feedback"></div>
+      </div>
+
+      <div id="results" class="game-area results hidden">
+        <h2>Well done! 🌟</h2>
+        <div class="final-score"><span id="final-score">0</span> points</div>
+        <div class="breakdown">
+          <div class="breakdown-item">
+            <span class="num" id="stat-first">0</span>
+            <span class="label">1st try ✅</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="num" id="stat-second">0</span>
+            <span class="label">2nd try ✅</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="num" id="stat-failed">0</span>
+            <span class="label">Needed help ❌</span>
+          </div>
+        </div>
+        <p id="save-status" class="save-status"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/score.js"></script>
+  <script src="js/engine.js"></script>
+</body>
+</html>
