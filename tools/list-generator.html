@@ -10,23 +10,21 @@
   <div class="container">
     <header>
       <h1>Image List Generator</h1>
-      <p class="subtitle">Creates list.json from a folder of images</p>
+      <p class="subtitle">Legacy — use <a href="games-editor.html">Games Editor</a> instead</p>
     </header>
 
     <p class="note">
-      Browsers cannot read folder contents automatically on a live website.
-      Use this tool once when you add or change images, then save <strong>list.json</strong> into the same folder.
+      <strong>Recommended:</strong> use the <a href="games-editor.html">Games Editor</a> to manage all games.
       <br><a href="../index.html">← Back to games</a>
     </p>
 
     <div class="form-group">
-      <label for="folder">Select image folder (e.g. games/game-1/images/1)</label>
+      <label for="folder">Select image folder</label>
       <input type="file" id="folder" webkitdirectory multiple>
     </div>
 
     <div id="output" class="link-output hidden">
       <p><strong>Files found:</strong> <span id="count"></span></p>
-      <p>Save this as <strong>list.json</strong> inside the folder you selected:</p>
       <textarea id="json" readonly></textarea>
       <br><br>
       <button type="button" id="btn-download" class="btn-primary">Download list.json</button>

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games Editor</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Games Editor</h1>
+      <p class="subtitle">Create and edit all games in one place</p>
+    </header>
+
+    <p class="note">
+      Loads every game from <strong>games/games.json</strong>. Edit, add, or remove games, then download a ZIP
+      with the full <strong>games/</strong> folder (all manifests + assets + updated games.json).
+      Unzip into your project folder.
+      <br><a href="../index.html">← Back to games</a>
+    </p>
+
+    <p id="loading" class="loading-msg">Loading games…</p>
+
+    <div id="editor" class="hidden">
+      <div class="editor-layout">
+        <aside class="games-sidebar">
+          <h2>All games</h2>
+          <ul id="games-sidebar-list" class="games-sidebar-list"></ul>
+          <button type="button" id="btn-new-game" class="btn-secondary" style="width:100%;margin:0">+ New game</button>
+        </aside>
+
+        <main id="game-editor-panel" class="game-editor-panel hidden">
+          <div class="editor-toolbar">
+            <button type="button" id="btn-delete-game" class="btn-danger">Delete this game</button>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-game-id">Game ID (folder name)</label>
+            <input type="text" id="edit-game-id">
+          </div>
+
+          <div class="form-group">
+            <label for="edit-game-title">Title (shown to kids)</label>
+            <input type="text" id="edit-game-title">
+          </div>
+
+          <div id="word-list" class="word-list"></div>
+          <button type="button" id="btn-add-word" class="btn-secondary">+ Add word</button>
+        </main>
+
+        <main id="no-selection" class="game-editor-panel">
+          <p class="loading-msg">Select a game from the list, or create a new one.</p>
+        </main>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" id="btn-export-all" class="btn-primary">Download all games (ZIP)</button>
+      </div>
+    </div>
+
+    <p id="gen-error" class="error-msg hidden"></p>
+    <div id="gen-success" class="note hidden"></div>
+  </div>
+
+  <script>
+    const IMAGE_EXT = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
+
+    const state = {
+      order: [],
+      games: {},
+      selectedId: null,
+    };
+
+    const loadingEl = document.getElementById('loading');
+    const editorEl = document.getElementById('editor');
+    const genError = document.getElementById('gen-error');
+    const genSuccess = document.getElementById('gen-success');
+
+    function showError(msg) {
+      genError.textContent = msg;
+      genError.classList.remove('hidden');
+      genSuccess.classList.add('hidden');
+    }
+
+    function showSuccess(msg) {
+      genSuccess.innerHTML = msg;
+      genSuccess.classList.remove('hidden');
+      genError.classList.add('hidden');
+    }
+
+    function clearMessages() {
+      genError.classList.add('hidden');
+      genSuccess.classList.add('hidden');
+    }
+
+    function assetUrl(gameId, path) {
+      return `../games/${gameId}/${path}`;
+    }
+
+    async function fetchBlob(gameId, path) {
+      const res = await fetch(assetUrl(gameId, path));
+      if (!res.ok) throw new Error(`Missing file: games/${gameId}/${path}`);
+      return res.blob();
+    }
+
+    async function resolveWordImagesFromManifest(gameId, word) {
+      if (Array.isArray(word.images)) {
+        return word.images.map((path) => ({ path, file: null }));
+      }
+      if (typeof word.images === 'string') {
+        const folder = word.images.replace(/\/$/, '');
+        const res = await fetch(`../games/${gameId}/${folder}/list.json`);
+        if (!res.ok) return [];
+        const files = await res.json();
+        return files
+          .filter((name) => IMAGE_EXT.test(name))
+          .map((name) => ({ path: `${folder}/${name}`, file: null }));
+      }
+      return [];
+    }
+
+    async function loadGameFromServer(gameId, title) {
+      const res = await fetch(`../games/${gameId}/manifest.json`);
+      if (!res.ok) throw new Error(`Could not load manifest for ${gameId}`);
+      const manifest = await res.json();
+
+      const words = [];
+      for (const word of manifest.words) {
+        words.push({
+          audio: { path: word.audio, file: null },
+          images: await resolveWordImagesFromManifest(gameId, word),
+          correct: word.correct || '',
+        });
+      }
+
+      return {
+        id: manifest.id || gameId,
+        title: manifest.title || title || gameId,
+        words,
+        deleted: false,
+        isNew: false,
+      };
+    }
+
+    async function initEditor() {
+      try {
+        const res = await fetch('../games/games.json');
+        const registry = res.ok ? await res.json() : [];
+
+        for (const entry of registry) {
+          state.order.push(entry.id);
+          state.games[entry.id] = await loadGameFromServer(entry.id, entry.title);
+        }
+
+        loadingEl.classList.add('hidden');
+        editorEl.classList.remove('hidden');
+        renderSidebar();
+
+        if (state.order.length) {
+          selectGame(state.order[0]);
+        }
+      } catch (err) {
+        loadingEl.textContent = err.message || 'Could not load games.';
+      }
+    }
+
+    function getActiveGames() {
+      return state.order.filter((id) => state.games[id] && !state.games[id].deleted);
+    }
+
+    function renderSidebar() {
+      const list = document.getElementById('games-sidebar-list');
+      list.innerHTML = '';
+
+      state.order.forEach((id) => {
+        const game = state.games[id];
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = game.deleted ? `${game.title} (deleted)` : game.title || id;
+        btn.className = id === state.selectedId ? 'active' : '';
+        if (game.deleted) btn.classList.add('deleted');
+        btn.addEventListener('click', () => selectGame(id));
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    function selectGame(id) {
+      state.selectedId = id;
+      document.getElementById('game-editor-panel').classList.remove('hidden');
+      document.getElementById('no-selection').classList.add('hidden');
+      renderSidebar();
+      renderGameForm();
+    }
+
+    function renderGameForm() {
+      const game = state.games[state.selectedId];
+      if (!game) return;
+
+      document.getElementById('edit-game-id').value = game.id;
+      document.getElementById('edit-game-id').disabled = !game.isNew;
+      document.getElementById('edit-game-title').value = game.title;
+
+      document.getElementById('edit-game-title').oninput = (e) => {
+        game.title = e.target.value;
+        renderSidebar();
+      };
+
+      document.getElementById('edit-game-id').oninput = (e) => {
+        game.id = e.target.value.trim();
+      };
+
+      renderWords();
+    }
+
+    function renderWords() {
+      const game = state.games[state.selectedId];
+      const wordListEl = document.getElementById('word-list');
+      wordListEl.innerHTML = '';
+
+      game.words.forEach((word, index) => {
+        const row = document.createElement('div');
+        row.className = 'word-row';
+
+        const audioName = word.audio.file?.name || word.audio.path.split('/').pop();
+        const previewHtml = word.images.map((img) => {
+          const name = img.file?.name || img.path.split('/').pop();
+          const isCorrect = name === word.correct || name.replace(/\.[^.]+$/, '') === word.correct;
+          const src = img.file
+            ? URL.createObjectURL(img.file)
+            : assetUrl(game.id, img.path);
+          return `<img class="image-preview${isCorrect ? ' correct-preview' : ''}" src="${src}" alt="${name}" title="${name}">`;
+        }).join('');
+
+        row.innerHTML = `
+          <div class="word-row-header">
+            <h3>Word ${index + 1}</h3>
+            ${game.words.length > 1 ? '<button type="button" class="btn-remove">Remove</button>' : ''}
+          </div>
+          <div class="form-group">
+            <label>Audio</label>
+            <p class="file-hint ok">Current: ${audioName}</p>
+            <input type="file" accept="audio/*,.m4a,.wav,.mp3" class="input-audio">
+            <span class="file-hint audio-hint"></span>
+          </div>
+          <div class="form-group">
+            <label>Images</label>
+            <div class="image-preview-grid">${previewHtml || '<span class="file-hint">No images yet</span>'}</div>
+            <input type="file" class="input-images" webkitdirectory multiple>
+            <span class="file-hint images-hint">Upload a folder to replace all images for this word</span>
+          </div>
+          <div class="form-group">
+            <label>Correct image</label>
+            <select class="input-correct"></select>
+          </div>
+        `;
+
+        if (game.words.length > 1) {
+          row.querySelector('.btn-remove').addEventListener('click', () => {
+            game.words.splice(index, 1);
+            renderWords();
+          });
+        }
+
+        const correctSelect = row.querySelector('.input-correct');
+        populateCorrectSelect(correctSelect, word);
+        correctSelect.value = word.correct;
+        correctSelect.addEventListener('change', () => {
+          word.correct = correctSelect.value;
+          renderWords();
+        });
+
+        row.querySelector('.input-audio').addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          word.audio.file = file;
+          const n = index + 1;
+          const ext = file.name.includes('.') ? file.name.split('.').pop() : 'mp3';
+          word.audio.path = `audio/${n}.${ext}`;
+          renderWords();
+        });
+
+        row.querySelector('.input-images').addEventListener('change', (e) => {
+          const files = Array.from(e.target.files).filter((f) => IMAGE_EXT.test(f.name));
+          if (!files.length) return;
+          const n = index + 1;
+          word.images = files.map((file) => ({
+            path: `images/${n}/${file.name}`,
+            file,
+          }));
+          if (!files.some((f) => f.name === word.correct)) {
+            word.correct = files[0].name;
+          }
+          renderWords();
+        });
+
+        wordListEl.appendChild(row);
+      });
+    }
+
+    function populateCorrectSelect(select, word) {
+      select.innerHTML = '';
+      word.images.forEach((img) => {
+        const name = img.file?.name || img.path.split('/').pop();
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+    }
+
+    function addWord() {
+      const game = state.games[state.selectedId];
+      if (!game) return;
+      const n = game.words.length + 1;
+      game.words.push({
+        audio: { path: `audio/${n}.mp3`, file: null },
+        images: [],
+        correct: '',
+      });
+      renderWords();
+    }
+
+    function newGame() {
+      let n = 1;
+      while (state.games[`game-${n}`]) n++;
+      const id = `game-${n}`;
+
+      state.order.push(id);
+      state.games[id] = {
+        id,
+        title: 'New Game',
+        words: [{
+          audio: { path: 'audio/1.mp3', file: null },
+          images: [],
+          correct: '',
+        }],
+        deleted: false,
+        isNew: true,
+      };
+      selectGame(id);
+    }
+
+    function deleteGame() {
+      const game = state.games[state.selectedId];
+      if (!game) return;
+      if (!confirm(`Delete "${game.title}"?`)) return;
+
+      game.deleted = true;
+      const next = getActiveGames().find((id) => id !== state.selectedId);
+      state.selectedId = next || null;
+
+      if (state.selectedId) {
+        selectGame(state.selectedId);
+      } else {
+        document.getElementById('game-editor-panel').classList.add('hidden');
+        document.getElementById('no-selection').classList.remove('hidden');
+      }
+      renderSidebar();
+    }
+
+    function validateAll() {
+      const active = getActiveGames();
+      if (!active.length) throw new Error('No games left — add at least one game.');
+
+      const ids = new Set();
+      for (const id of active) {
+        const game = state.games[id];
+        const gameId = game.id.trim();
+
+        if (!gameId || !/^[a-zA-Z0-9_-]+$/.test(gameId)) {
+          throw new Error(`"${game.title}": invalid Game ID.`);
+        }
+        if (!game.title.trim()) {
+          throw new Error(`Game ${gameId}: enter a title.`);
+        }
+        if (ids.has(gameId)) throw new Error(`Duplicate Game ID: ${gameId}`);
+        ids.add(gameId);
+
+        if (!game.words.length) throw new Error(`Game ${gameId}: add at least one word.`);
+
+        game.words.forEach((word, i) => {
+          if (!word.audio.file && !word.audio.path) {
+            throw new Error(`Game ${gameId}, word ${i + 1}: upload audio.`);
+          }
+          if (!word.audio.file && game.isNew) {
+            throw new Error(`Game ${gameId}, word ${i + 1}: upload audio.`);
+          }
+          if (!word.images.length) {
+            throw new Error(`Game ${gameId}, word ${i + 1}: upload images.`);
+          }
+          if (!word.correct) {
+            throw new Error(`Game ${gameId}, word ${i + 1}: pick the correct image.`);
+          }
+        });
+      }
+    }
+
+    function buildManifest(game) {
+      return {
+        id: game.id,
+        title: game.title,
+        words: game.words.map((word, i) => {
+          const n = i + 1;
+          let audioPath = word.audio.path;
+          if (word.audio.file) {
+            const ext = word.audio.file.name.includes('.')
+              ? word.audio.file.name.split('.').pop()
+              : 'mp3';
+            audioPath = `audio/${n}.${ext}`;
+          } else if (word.audio.path) {
+            const ext = word.audio.path.includes('.')
+              ? word.audio.path.split('.').pop()
+              : 'mp3';
+            audioPath = `audio/${n}.${ext}`;
+          }
+
+          return {
+            audio: audioPath,
+            correct: word.correct,
+            images: word.images.map((img) => {
+              const name = img.file?.name || img.path.split('/').pop();
+              return `images/${n}/${name}`;
+            }),
+          };
+        }),
+      };
+    }
+
+    async function exportAll() {
+      validateAll();
+
+      const zip = new JSZip();
+      const active = getActiveGames();
+
+      const registry = active.map((id) => {
+        const g = state.games[id];
+        return { id: g.id, title: g.title };
+      });
+      registry.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      zip.file('games/games.json', JSON.stringify(registry, null, 2));
+
+      for (const id of active) {
+        const game = state.games[id];
+        const manifest = buildManifest(game);
+        const root = zip.folder(`games/${game.id}`);
+        root.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+        for (let i = 0; i < game.words.length; i++) {
+          const word = game.words[i];
+          const manifestWord = manifest.words[i];
+
+          const audioBlob = word.audio.file
+            ? word.audio.file
+            : await fetchBlob(id, word.audio.path);
+          root.file(manifestWord.audio, audioBlob);
+
+          for (let j = 0; j < word.images.length; j++) {
+            const img = word.images[j];
+            const imgPath = manifestWord.images[j];
+            const imgBlob = img.file
+              ? img.file
+              : await fetchBlob(id, img.path);
+            root.file(imgPath, imgBlob);
+          }
+        }
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'games-export.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+
+      showSuccess(
+        `<strong>Exported ${active.length} game(s).</strong> Unzip <code>games-export.zip</code> into your project folder ` +
+        `(the folder that contains <code>games/</code>). It replaces <code>games/games.json</code> and all game folders.`
+      );
+    }
+
+    document.getElementById('btn-new-game').addEventListener('click', newGame);
+    document.getElementById('btn-add-word').addEventListener('click', addWord);
+    document.getElementById('btn-delete-game').addEventListener('click', deleteGame);
+    document.getElementById('btn-export-all').addEventListener('click', () => {
+      clearMessages();
+      exportAll().catch((err) => showError(err.message));
+    });
+
+    initEditor();
+  </script>
+</body>
+</html>

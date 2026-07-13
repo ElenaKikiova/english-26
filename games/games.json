@@ -1,3 +1,6 @@
 [
-  { "id": "game-1", "title": "Example Game — Animals" },
+  {
+    "id": "animalos",
+    "title": "Animals"
+  }
 ]

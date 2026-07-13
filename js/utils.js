@@ -97,7 +97,8 @@ async function loadGameManifest(gameId) {
 async function loadGamesRegistry() {
   const res = await fetch('games/games.json');
   if (!res.ok) throw new Error('Could not load games list');
-  return res.json();
+  const games = await res.json();
+  return games.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 }
 
 function buildGameUrl(gameId, player) {
